@@ -1,0 +1,116 @@
+# backend/.cursorrules for AIdentity.ai Backend
+
+# Project Overview
+
+# Backend for AIdentity.ai, an AI-driven app for content creation, featuring AI agents,
+
+# web crawling, media processing, and autonomous posting.
+
+# Tech Stack
+
+# Back End: FastAPI, Pymongo, Redis with RQ
+
+# Database: MongoDB
+
+# AI Agents: LangChain, OpenAI GPT-3.5 Turbo, Gemini, Anthropic Claude 3.5 Sonnet
+
+# Web Crawling: Crawl4AI
+
+# Media Processing: FFmpeg, MoviePy, OpenCV
+
+# Monitoring: Sentry, Prometheus, Grafana
+
+# Third-Party APIs: OAuth Authentication, HeyGen, Eleven Labs, Twitter API, Reddit API
+
+# Key Principles
+
+- Write concise, technical responses focused on accuracy.
+- Use functional, declarative programming; avoid classes unless required by frameworks.
+- Prefer iteration and modularization to eliminate code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., is_processed, has_error).
+- Use lowercase with underscores for directories and files (e.g., routers/content_routes.py).
+- Favor named exports for routes and utility functions.
+- Follow the Receive an Object, Return an Object (RORO) pattern.
+
+# Python/FastAPI Guidelines
+
+- Define pure functions with def and asynchronous operations with async def.
+- Require type hints for all function signatures; use Pydantic models for structured data.
+- Organize files into routers/, agents/, utils/, media/, schemas/, workers/, and tests/ directories.
+- Avoid unnecessary curly braces in conditionals; use single-line syntax where clear.
+- Handle errors early with guard clauses and early returns; place happy path logic last.
+- Raise custom HTTP exceptions for specific error conditions.
+
+# AI Agents Guidelines
+
+- Define AI agents as modular functions within agents/ directory for tasks like ideation and scripting.
+- Use LangChain to orchestrate agent workflows, integrating OpenAI GPT-3.5 Turbo, Gemini, and Anthropic Claude 3.5 Sonnet.
+- Support multiple AI models with a configurable selector based on task requirements (e.g., speed vs. quality).
+- Pass agent inputs and outputs as Pydantic models for type safety and validation.
+- Design agents to process user context (e.g., niche, preferences) and return structured results.
+- Isolate agent logic from routes; expose via utility functions called by route handlers.
+- Handle agent-specific errors with custom exceptions in utils/errors.py (e.g., AgentFailureError).
+- Optimize agent performance by caching responses in Redis for repeated queries.
+- Use async operations for agent interactions with external APIs or databases.
+- Limit agent scope to single responsibilities; compose multiple agents for complex workflows.
+- Store agent-generated data in MongoDB with metadata (e.g., timestamp, user_id, model_used).
+
+# Error Handling and Validation
+
+- Address edge cases at the start of functions using early returns.
+- Log errors with the built-in logging module and provide user-friendly messages.
+- Use Pydantic BaseModel for input and output validation.
+- Define custom error types in utils/errors.py for consistent error handling.
+
+# Dependencies
+
+- Core: fastapi, uvicorn, pymongo, redis, rq
+- AI: langchain, openai, gemini, anthropic
+- Crawling: crawl4ai
+- Media: moviepy, opencv-python, boto3
+- Monitoring: sentry-sdk, prometheus-client
+
+# FastAPI-Specific Guidelines
+
+- Define routes as functions with Pydantic models for inputs and outputs.
+- Manage startup and shutdown with asynccontextmanager instead of event decorators.
+- Implement middleware for request logging, error tracking, and performance metrics.
+- Optimize performance with async I/O for database, API calls, and file operations.
+- Use HTTPException for expected errors with specific status codes and messages.
+- Handle unexpected errors in middleware with detailed logging.
+
+# Media Processing Guidelines
+
+- Use MoviePy for high-level video editing tasks like trimming and concatenation.
+- Leverage FFmpeg for low-level media operations via subprocess calls.
+- Apply OpenCV for advanced video processing like overlays and filters.
+- Offload media tasks to RQ workers to avoid blocking the main thread.
+
+# Performance Optimization
+
+- Use asynchronous I/O for database queries, external API requests, and S3 interactions.
+- Cache frequently accessed data like crawl results in Redis.
+- Minimize serialization overhead with efficient Pydantic model usage.
+
+# Monitoring
+
+- Track errors with Sentry using detailed traces.
+- Collect performance metrics with Prometheus, focusing on request counts and latency.
+- Visualize metrics in Grafana dashboards for real-time monitoring.
+
+# Key Conventions
+
+- Utilize FastAPI’s dependency injection for database connections and shared resources.
+- Limit blocking operations by delegating tasks like media processing to RQ.
+- Prioritize API performance metrics such as latency and throughput.
+
+# Folder Structure
+
+backend/
+├── routers/ # Route definitions for API endpoints
+├── agents/ # AI agent logic and workflows
+├── utils/ # Utility functions (e.g., DB, errors, logging)
+├── media/ # Media processing-specific logic
+├── schemas/ # Pydantic models for data validation
+├── workers/ # RQ background task definitions
+└── tests/ # Unit tests for all components
