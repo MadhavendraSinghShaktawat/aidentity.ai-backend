@@ -8,32 +8,34 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException, status
 
 
-class BaseAPIError(HTTPException):
-    """
-    Base class for all API errors.
-    
-    Attributes:
-        status_code: HTTP status code
-        detail: Error message
-        error_code: Machine-readable error code
-    """
+class BaseAPIError(Exception):
+    """Base class for all API errors."""
     def __init__(
-        self,
-        status_code: int,
-        detail: str,
-        error_code: str,
-        headers: Optional[Dict[str, Any]] = None
+        self, 
+        detail: str, 
+        status_code: int = 500, 
+        error_code: str = "internal_error"
     ):
+        """
+        Initialize the error.
+        
+        Args:
+            detail: Human-readable error description
+            status_code: HTTP status code
+            error_code: Machine-readable error code
+        """
+        self.detail = detail
+        self.status_code = status_code
         self.error_code = error_code
-        super().__init__(status_code=status_code, detail=detail, headers=headers)
+        super().__init__(self.detail)
 
 
 class DatabaseError(BaseAPIError):
     """Exception raised for database-related errors."""
     def __init__(self, detail: str, error_code: str = "database_error"):
         super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=detail,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             error_code=error_code
         )
 
@@ -42,49 +44,49 @@ class NotFoundError(BaseAPIError):
     """Exception raised when a resource is not found."""
     def __init__(self, detail: str, error_code: str = "not_found"):
         super().__init__(
-            status_code=status.HTTP_404_NOT_FOUND,
             detail=detail,
+            status_code=status.HTTP_404_NOT_FOUND,
             error_code=error_code
         )
 
 
 class ValidationError(BaseAPIError):
-    """Exception raised for validation errors."""
-    def __init__(self, detail: str, error_code: str = "validation_error"):
+    """Error for invalid input data."""
+    def __init__(self, detail: str):
         super().__init__(
-            status_code=status.HTTP_400_BAD_REQUEST,
             detail=detail,
-            error_code=error_code
+            status_code=400,
+            error_code="validation_error"
         )
 
 
 class AuthenticationError(BaseAPIError):
-    """Exception raised for authentication errors."""
-    def __init__(self, detail: str, error_code: str = "authentication_error"):
+    """Error for authentication failures."""
+    def __init__(self, detail: str):
         super().__init__(
-            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail,
-            error_code=error_code
+            status_code=401,
+            error_code="authentication_error"
         )
 
 
 class AuthorizationError(BaseAPIError):
-    """Exception raised for authorization errors."""
-    def __init__(self, detail: str, error_code: str = "authorization_error"):
+    """Error for authorization failures."""
+    def __init__(self, detail: str):
         super().__init__(
-            status_code=status.HTTP_403_FORBIDDEN,
             detail=detail,
-            error_code=error_code
+            status_code=403,
+            error_code="authorization_error"
         )
 
 
 class AgentFailureError(BaseAPIError):
-    """Exception raised when an AI agent fails to complete a task."""
-    def __init__(self, detail: str, error_code: str = "agent_failure"):
+    """Error for AI agent failures."""
+    def __init__(self, detail: str):
         super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=detail,
-            error_code=error_code
+            status_code=500,
+            error_code="agent_failure"
         )
 
 

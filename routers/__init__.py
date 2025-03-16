@@ -1,19 +1,27 @@
 """
-Router package initialization.
-This file ensures that the routers package is properly initialized.
+API Routers Package
+
+This package contains all API route definitions for the application.
+Each module defines a specific set of related endpoints.
 """
+
+import logging
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # This file can be empty, but it's required to make the directory a Python package
 # You can optionally expose routers here for cleaner imports
-from routers.auth_router import router as auth_router
-from routers.test_router import router as test_router
+from .auth_router import router as auth_router
+from .test_router import router as test_router
+from .trend_analyzer_router import router as trend_analyzer_router
 
-__all__ = ["auth_router", "test_router"]
+__all__ = [
+    "auth_router",
+    "test_router",
+    "trend_analyzer_router"
+]
 
-import logging
 from typing import List
 
 from fastapi import FastAPI
@@ -41,4 +49,12 @@ def register_routers(app: FastAPI) -> None:
     )
     logger.info("Registered router: /api/test")
     
-    logger.info("Registered 2 API routers") 
+    # Register trend analyzer router
+    app.include_router(
+        trend_analyzer_router,
+        prefix="/api/trend-analyzer",
+        tags=["trend-analyzer"]
+    )
+    logger.info("Registered router: /api/trend-analyzer")
+    
+    logger.info("Registered 3 API routers") 
