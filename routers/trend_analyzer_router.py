@@ -34,14 +34,28 @@ async def trend_analysis(
     This endpoint fetches trends from multiple sources based on the specified parameters,
     analyzes them, and generates a content calendar tailored to the target platform.
     
+    You can now use the optional 'keywords' parameter to focus on specific niche topics.
+    For example, if your industry is "Tech", you can add keywords like ["AI", "machine learning", 
+    "quantum computing"] to specifically analyze trends related to those topics.
+    
     Args:
-        input_data: Input parameters for trend analysis
+        input_data: Input parameters for trend analysis, including:
+            - target_platform: Platform to create content for (e.g., Instagram)
+            - industry: Industry or niche (e.g., Tech, Fitness)
+            - trend_depth: How far back to analyze (Past Week, Monthly)
+            - calendar_duration: Duration of content calendar (7 Days, 14 Days, 30 Days)
+            - cost_mode: Balance of cost/quality (Low-Cost, Balanced, High-Quality)
+            - bypass_cache: Whether to skip cached results (default: False)
+            - keywords: Optional list of specific topics to focus on (e.g., ["AI", "Web3", "startups"])
         
     Returns:
         A structured output containing trend summaries and a content calendar
     """
     try:
         logger.info(f"Receiving trend analysis request for {input_data.target_platform} in {input_data.industry}")
+        if input_data.keywords:
+            logger.info(f"With keyword focus: {', '.join(input_data.keywords)}")
+        
         result = await analyze_trends(input_data)
         return result
     except AgentFailureError as e:

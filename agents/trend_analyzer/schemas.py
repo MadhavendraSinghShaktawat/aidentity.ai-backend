@@ -29,6 +29,7 @@ class TrendAnalyzerInput(BaseModel):
     calendar_duration: CalendarDuration = Field(..., description="Duration of the content calendar")
     cost_mode: CostMode = Field(CostMode.BALANCED, description="Balance between cost and quality")
     bypass_cache: bool = Field(False, description="Whether to bypass cached results")
+    keywords: Optional[List[str]] = Field(None, description="Specific keywords or topics to focus on (e.g., ['AI', 'machine learning', 'data science'])")
     
     model_config = {
         "json_schema_extra": {
@@ -38,7 +39,8 @@ class TrendAnalyzerInput(BaseModel):
                 "trend_depth": "Past Week",
                 "calendar_duration": "7 Days",
                 "cost_mode": "Balanced",
-                "bypass_cache": False
+                "bypass_cache": False,
+                "keywords": ["AI", "machine learning", "startup trends"]
             }
         }
     }

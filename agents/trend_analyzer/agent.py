@@ -132,6 +132,7 @@ async def _fetch_trends_from_sources(input_data: TrendAnalyzerInput) -> List[Tre
     cost_mode = input_data.cost_mode
     trend_depth = input_data.trend_depth
     industry = input_data.industry
+    keywords = input_data.keywords
     
     # Define which sources to use based on cost mode
     if cost_mode == CostMode.LOW_COST:
@@ -159,7 +160,18 @@ async def _fetch_trends_from_sources(input_data: TrendAnalyzerInput) -> List[Tre
         ]
     
     # Fetch data from all selected sources concurrently
-    tasks = [func(industry, trend_depth) for func in source_functions]
+    tasks = []
+    for func in source_functions:
+        # Check if the function can accept keywords parameter
+        import inspect
+        sig = inspect.signature(func)
+        if 'keywords' in sig.parameters:
+            # Function supports keywords parameter
+            tasks.append(func(industry, trend_depth, keywords=keywords))
+        else:
+            # Use original signature
+            tasks.append(func(industry, trend_depth))
+    
     results = await asyncio.gather(*tasks, return_exceptions=True)
     
     # Process results, handling any exceptions
@@ -212,12 +224,23 @@ async def _analyze_trends_with_llm(
         
         llm = ChatOpenAI(model=model, temperature=temperature)
         
+        # Get keyword focus if provided
+        keyword_instruction = ""
+        if input_data.keywords and len(input_data.keywords) > 0:
+            keyword_list = ", ".join([f'"{k}"' for k in input_data.keywords])
+            keyword_instruction = f"""
+            KEYWORD FOCUS: You should specifically look for trends related to these keywords: {keyword_list}.
+            Prioritize content that involves these keywords and find the most recent trending discussions about them.
+            If any of these keywords are currently trending in a major way, make sure to highlight them prominently.
+            """
+        
         # Create prompt for trend analysis
         template = """
         You are a trend analysis expert tasked with identifying valuable content opportunities.
         
         Target platform: {target_platform}
         Industry/Niche: {industry}
+        {keyword_focus}
         
         Analyze the following trends data from multiple sources:
         
@@ -230,6 +253,7 @@ async def _analyze_trends_with_llm(
            - Key audience demographics if apparent
            - Content types performing well within this trend
            - Potential angles for {target_platform}
+           - How recent and timely this trend is (is it happening right now?)
         3. Explain why each trend would be valuable for the target platform
         
         RESPOND ONLY WITH a valid JSON array of trend objects with these fields:
@@ -239,6 +263,7 @@ async def _analyze_trends_with_llm(
         - target_audience: Key audience demographics for this trend
         - content_suggestions: List of 2-3 specific content ideas for {target_platform}
         - source_platforms: List of platforms where this trend is popular
+        - timeliness: How recent and timely this trend is (VERY_RECENT, RECENT, ONGOING)
         
         IMPORTANT: Your response MUST ONLY BE a valid JSON array. Do not include any text before or after the JSON array.
         """
@@ -256,6 +281,7 @@ async def _analyze_trends_with_llm(
         result = await chain.ainvoke({
             "target_platform": input_data.target_platform,
             "industry": input_data.industry,
+            "keyword_focus": keyword_instruction,
             "trends_data": trends_data
         })
         
@@ -287,6 +313,11 @@ async def _analyze_trends_with_llm(
             
             trend_summaries = []
             for item in trend_data:
+                # Add any additional fields from the LLM response to the metadata
+                additional_fields = {k: v for k, v in item.items() 
+                                  if k not in ["topic", "description", "engagement_level", 
+                                              "target_audience", "content_suggestions", "source_platforms"]}
+                
                 trend_summaries.append(
                     TrendSummary(
                         topic=item.get("topic", ""),
@@ -294,7 +325,8 @@ async def _analyze_trends_with_llm(
                         engagement_level=item.get("engagement_level", "MEDIUM"),
                         target_audience=item.get("target_audience", ""),
                         content_suggestions=item.get("content_suggestions", []),
-                        source_platforms=item.get("source_platforms", [])
+                        source_platforms=item.get("source_platforms", []),
+                        timeliness=item.get("timeliness", "ONGOING")
                     )
                 )
             
@@ -441,3 +473,122 @@ async def _generate_content_calendar(
         logger.error(f"Error in calendar generation: {str(e)}", exc_info=True)
         # Instead of raising, return mock data
         return _create_mock_calendar(trend_summaries, input_data) 
+
+def _create_mock_trend_summaries(input_data: TrendAnalyzerInput) -> List[TrendSummary]:
+    """Create mock trend summaries for testing or fallback."""
+    logger.info("Creating mock trend summaries for testing")
+    
+    # Create base mock trend summaries based on input parameters
+    mock_trends = [
+        TrendSummary(
+            topic=f"{input_data.industry} Digital Transformation",
+            description=f"How businesses in the {input_data.industry} sector are adopting digital solutions.",
+            engagement_level="HIGH",
+            target_audience="Business professionals, tech enthusiasts",
+            content_suggestions=[
+                f"Top 10 Digital Tools for {input_data.industry}",
+                f"Case Study: Digital Transformation in {input_data.industry}",
+                f"The Future of {input_data.industry} Technology"
+            ],
+            source_platforms=["LinkedIn", "Twitter", "Industry Blogs"]
+        ),
+        TrendSummary(
+            topic=f"Sustainable {input_data.industry}",
+            description=f"The growing importance of sustainability in {input_data.industry}.",
+            engagement_level="MEDIUM",
+            target_audience="Environmentally conscious consumers, industry leaders",
+            content_suggestions=[
+                f"How to Make Your {input_data.industry} Business More Sustainable",
+                f"The ROI of Sustainability in {input_data.industry}",
+                f"Spotlight: Sustainable {input_data.industry} Innovations"
+            ],
+            source_platforms=["Instagram", "YouTube", "Environmental Forums"]
+        ),
+        TrendSummary(
+            topic=f"{input_data.industry} for Gen Z",
+            description=f"How Generation Z is reshaping the {input_data.industry} landscape.",
+            engagement_level="HIGH",
+            target_audience="Young adults, marketers targeting Gen Z",
+            content_suggestions=[
+                f"What Gen Z Wants from {input_data.industry} Brands",
+                f"TikTok Trends in {input_data.industry}",
+                f"The Gen Z {input_data.industry} Consumer Report"
+            ],
+            source_platforms=["TikTok", "Instagram", "Snapchat"]
+        ),
+        TrendSummary(
+            topic=f"AI in {input_data.industry}",
+            description=f"The impact of artificial intelligence on {input_data.industry}.",
+            engagement_level="HIGH",
+            target_audience="Tech adopters, business innovators",
+            content_suggestions=[
+                f"AI Tools Revolutionizing {input_data.industry}",
+                f"How to Implement AI in Your {input_data.industry} Strategy",
+                f"The Ethics of AI in {input_data.industry}"
+            ],
+            source_platforms=["Reddit", "Twitter", "Tech Blogs"]
+        ),
+        TrendSummary(
+            topic=f"Remote Work in {input_data.industry}",
+            description=f"The continuing evolution of remote work in {input_data.industry}.",
+            engagement_level="MEDIUM",
+            target_audience="Remote workers, HR professionals",
+            content_suggestions=[
+                f"Building a Remote {input_data.industry} Team",
+                f"Tools for Remote {input_data.industry} Collaboration",
+                f"The Future of Work in {input_data.industry}"
+            ],
+            source_platforms=["LinkedIn", "Medium", "Industry Forums"]
+        )
+    ]
+    
+    # If keywords are provided, add some keyword-specific mock trends
+    if input_data.keywords and len(input_data.keywords) > 0:
+        for keyword in input_data.keywords[:3]:  # Limit to first 3 keywords
+            keyword_trend = TrendSummary(
+                topic=f"{keyword} Trends in {input_data.industry}",
+                description=f"Latest developments and innovations around {keyword} in the {input_data.industry} sector.",
+                engagement_level="HIGH",
+                target_audience=f"{input_data.industry} professionals, {keyword} enthusiasts, early adopters",
+                content_suggestions=[
+                    f"How {keyword} is Changing {input_data.industry} in 2024",
+                    f"Top 5 {keyword} Innovations to Watch",
+                    f"{input_data.industry} Leaders Using {keyword}: Case Studies"
+                ],
+                source_platforms=["Twitter", "LinkedIn", "Industry Publications", "Reddit"]
+            )
+            # Add to the beginning to prioritize keyword-specific trends
+            mock_trends.insert(0, keyword_trend)
+    
+    # Add some "real-time" trending topics
+    current_trending_topics = [
+        "Artificial Intelligence Ethics",
+        "Sustainable Business Practices",
+        "Remote Work Revolution",
+        "Blockchain Applications",
+        "Digital Privacy Concerns",
+        "Metaverse Development",
+        "NFT Marketplace Evolution",
+        "Quantum Computing Breakthroughs",
+        "Social Commerce",
+        "Creator Economy"
+    ]
+    
+    # Add 1-2 current trending topics
+    for topic in current_trending_topics[:2]:
+        current_trend = TrendSummary(
+            topic=f"{topic} in {input_data.industry}",
+            description=f"The latest developments in {topic} and their impact on {input_data.industry}.",
+            engagement_level="VERY HIGH",
+            target_audience="Trend-focused professionals, innovators, industry leaders",
+            content_suggestions=[
+                f"Breaking: How {topic} is Disrupting {input_data.industry}",
+                f"What You Need to Know About {topic} Today",
+                f"Expert Analysis: {topic} Trends for 2024"
+            ],
+            source_platforms=["Twitter", "TikTok", "LinkedIn", "Industry News"]
+        )
+        # Add as first item to prioritize current trends
+        mock_trends.insert(0, current_trend)
+    
+    return mock_trends 
