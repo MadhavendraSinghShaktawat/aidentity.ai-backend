@@ -18,8 +18,8 @@ from fastapi.staticfiles import StaticFiles
 from utils.config import Config
 from utils.errors import BaseAPIError
 from utils.redis_cache import init_redis_pool, close_redis_pool
-from routers import auth_router, test_router  # Import from routers package directly
 from routers.trend_analyzer_router import router as trend_analyzer_router
+from routers.auth_router import router as auth_router
 
 # Configure logging
 logging.basicConfig(
@@ -74,11 +74,6 @@ logger.info("Auth router routes:")
 for route in auth_router.routes:
     logger.info(f"  {route.path} [{route.methods}]")
 
-# Debug: Print test_router routes
-logger.info("Test router routes:")
-for route in test_router.routes:
-    logger.info(f"  {route.path} [{route.methods}]")
-
 # Debug: Print trend analyzer router routes
 logger.info("Trend analyzer router routes:")
 for route in trend_analyzer_router.routes:
@@ -87,32 +82,14 @@ for route in trend_analyzer_router.routes:
 # Debug: Print router info before registration
 logger.info("=== ROUTER REGISTRATION STARTING ===")
 logger.info(f"Auth router has {len(auth_router.routes)} routes")
-logger.info(f"Test router has {len(test_router.routes)} routes")
 logger.info(f"Trend analyzer router has {len(trend_analyzer_router.routes)} routes")
 
 # Register routers with explicit tags and prefixes
-app.include_router(
-    auth_router,
-    prefix="/api/auth",
-    tags=["Authentication"]  # Make tag more descriptive
-)
-logger.info("Registered router: /api/auth")
-
-app.include_router(
-    test_router,
-    prefix="/api/test",
-    tags=["Testing"]  # Make tag more descriptive
-)
-logger.info("Registered router: /api/test")
-
-# Register trend analyzer router with explicit documentation
-app.include_router(
-    trend_analyzer_router,
-    prefix="/api/trend-analyzer",
-    tags=["Trend Analyzer"],  # Make tag more descriptive
-    responses={404: {"description": "Not found"}},
-)
+app.include_router(trend_analyzer_router, prefix="/api/trend-analyzer", tags=["Trend Analyzer"])
 logger.info("Registered router: /api/trend-analyzer")
+
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+logger.info("Registered router: /api/auth")
 
 # Debug: Print all registered routes
 logger.info("All registered routes:")

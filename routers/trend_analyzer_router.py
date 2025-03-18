@@ -6,7 +6,8 @@ which analyzes trending topics and generates content calendars.
 """
 import logging
 from typing import Dict, List, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query, Request
+from fastapi.responses import HTMLResponse
 
 from agents.trend_analyzer.agent import analyze_trends
 from agents.trend_analyzer.schemas import (
@@ -17,6 +18,7 @@ from agents.trend_analyzer.schemas import (
     CalendarDuration,
     SupportedPlatformsResponse
 )
+from agents.trend_analyzer.sources.google_trends import get_oauth_authorization_url
 from utils.errors import AgentFailureError
 
 logger = logging.getLogger(__name__)
@@ -101,4 +103,91 @@ async def get_supported_platforms():
         trend_depths=["Past Week", "Past Month", "Past 3 Months"],
         calendar_durations=["7 Days", "14 Days", "30 Days"],
         cost_modes=["Low Cost", "Balanced", "High Quality"]
-    ) 
+    )
+
+@router.get("/google-auth", response_class=HTMLResponse)
+async def start_google_auth():
+    """
+    Start the Google OAuth flow for Trends API access.
+    
+    This endpoint generates a Google OAuth URL and redirects the user to it.
+    After authentication, Google will redirect back to the specified redirect URI.
+    """
+    try:
+        auth_url = get_oauth_authorization_url()
+        
+        # Return an HTML page that redirects to the Google auth URL
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Redirecting to Google Auth</title>
+            <meta http-equiv="refresh" content="0;url={auth_url}">
+        </head>
+        <body>
+            <h1>Redirecting to Google Authentication...</h1>
+            <p>If you are not redirected automatically, <a href="{auth_url}">click here</a>.</p>
+        </body>
+        </html>
+        """
+    except ValueError as e:
+        # Handle the case where credentials are missing
+        error_message = str(e)
+        logger.error(f"OAuth error: {error_message}")
+        
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Authentication Error</title>
+        </head>
+        <body>
+            <h1>Google Authentication Setup Error</h1>
+            <p>The application is not correctly configured for Google authentication.</p>
+            <p>Error details: {error_message}</p>
+            <h2>How to Fix This Issue:</h2>
+            <ol>
+                <li>Make sure you've created OAuth credentials in the Google Cloud Console</li>
+                <li>Add your Google Client ID to the .env file as GOOGLE_CLIENT_ID</li>
+                <li>Verify that your application is loading environment variables correctly</li>
+                <li>Check the server logs for more detailed information</li>
+            </ol>
+        </body>
+        </html>
+        """
+
+@router.get("/redirect", response_class=HTMLResponse)
+async def google_auth_redirect(request: Request):
+    """
+    Handle the redirect from Google OAuth.
+    
+    This endpoint processes the OAuth response from Google,
+    extracts the access token, and stores it for API requests.
+    """
+    # In a production app, you would extract and store the token
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Authentication Complete</title>
+        <script>
+            // Extract access token from URL fragment
+            const params = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = params.get('access_token');
+            
+            if (accessToken) {
+                // Display success message
+                document.addEventListener('DOMContentLoaded', () => {
+                    document.getElementById('token').textContent = accessToken;
+                    // In a real app, you would send this token to your backend
+                });
+            }
+        </script>
+    </head>
+    <body>
+        <h1>Google Authentication Complete</h1>
+        <p>Your access token: <code id="token">Processing...</code></p>
+        <p>You can now close this window and return to the application.</p>
+    </body>
+    </html>
+    """ 

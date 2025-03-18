@@ -31,6 +31,7 @@
 - Use lowercase with underscores for directories and files (e.g., routers/content_routes.py).
 - Favor named exports for routes and utility functions.
 - Follow the Receive an Object, Return an Object (RORO) pattern.
+- No mock data
 
 # Python/FastAPI Guidelines
 

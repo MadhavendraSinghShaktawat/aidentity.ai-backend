@@ -178,3 +178,48 @@ pytest
 ## License
 
 [MIT License](LICENSE)
+
+## API Authentication Setup
+
+### Google Trends API (OAuth)
+
+To use the real Google Trends API instead of mock data:
+
+1. Create a Google Cloud Platform project:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Navigate to "APIs & Services" > "Library"
+   - Enable the "Google Trends API" if available (or related APIs)
+
+2. Create OAuth credentials:
+   - Go to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Select "Web application" as the application type
+   - Set a name for your OAuth client
+   - Add `http://localhost:8001/redirect` to the authorized redirect URIs
+   - Click "Create"
+
+3. Note your credentials:
+   - Save the generated `client_id` and `client_secret`
+
+4. Update your `.env` file:
+   ```
+   GOOGLE_CLIENT_ID=your_client_id_here
+   GOOGLE_CLIENT_SECRET=your_client_secret_here
+   GOOGLE_REDIRECT_URI=http://localhost:8001/redirect
+   ```
+
+5. The OAuth URL will be properly formatted as:
+   ```
+   https://accounts.google.com/o/oauth2/auth?
+   response_type=token
+   &client_id=YOUR_CLIENT_ID
+   &redirect_uri=YOUR_REDIRECT_URI
+   &scope=https://www.googleapis.com/auth/trends.readonly
+   &access_type=offline
+   &prompt=consent
+   ```
+
+### Reddit API
+
+// ... existing Reddit API instructions ...
