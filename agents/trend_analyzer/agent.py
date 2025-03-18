@@ -161,18 +161,21 @@ async def _fetch_trends_from_sources(input_data: TrendAnalyzerInput) -> List[Tre
             fetch_reddit_trends
         ]
     elif cost_mode == CostMode.BALANCED:
-        # For balanced, use Reddit and YouTube
+        # For balanced, use Reddit, Web Crawler and YouTube
         source_functions = [
             fetch_reddit_trends,
-            fetch_youtube_trends
+            fetch_youtube_trends,
+            fetch_crawl4ai_trends  # Add web crawler for BALANCED mode too
         ]
     else:  # HIGH_QUALITY
-        # For high quality, use all remaining sources
+        # For high quality, use all sources
         source_functions = [
             fetch_reddit_trends,
             fetch_youtube_trends,
             fetch_crawl4ai_trends
         ]
+    
+    logger.info(f"Fetching trends from {len(source_functions)} sources for {industry} in {cost_mode.value} mode")
     
     # Fetch data from all selected sources concurrently
     tasks = []
@@ -191,9 +194,21 @@ async def _fetch_trends_from_sources(input_data: TrendAnalyzerInput) -> List[Tre
     
     # Process results, handling any exceptions
     for i, result in enumerate(results):
+        source_name = source_functions[i].__name__.replace("fetch_", "").replace("_trends", "").title()
         if isinstance(result, Exception):
-            logger.warning(f"Failed to fetch from source {source_functions[i].__name__}: {str(result)}")
+            logger.warning(f"Failed to fetch from {source_name}: {str(result)}")
             continue
+        
+        # Log detailed information about the source data
+        is_mock = result.metadata.get("is_mock", True)
+        source_count = result.metadata.get("source_count", 0)
+        logger.info(f"Source {result.platform}: Using {'MOCK' if is_mock else 'REAL'} data with {source_count} items")
+        
+        # Special case for web crawler to provide more details
+        if source_name.lower() == "crawl4ai":
+            data_source = result.metadata.get("data_source", "unknown")
+            if not is_mock:
+                logger.info(f"WebTrends data source: {data_source}")
         
         sources.append(result)
     
@@ -249,6 +264,22 @@ async def _analyze_trends_with_llm(
             If any of these keywords are currently trending in a major way, make sure to highlight them prominently.
             """
         
+        # Record which sources provided real data
+        real_data_sources = []
+        for source in trend_sources:
+            if not source.metadata.get("is_mock", True):
+                platform_name = source.platform
+                real_data_sources.append(platform_name)
+        
+        real_data_instruction = ""
+        if real_data_sources:
+            sources_list = ", ".join(real_data_sources)
+            real_data_instruction = f"""
+            IMPORTANT: The following sources provided REAL trend data: {sources_list}.
+            Give higher priority to these trends since they represent actual current data.
+            Web-crawled data (WebTrends) contains the most up-to-date information about current news and industry developments.
+            """
+        
         # Create prompt for trend analysis
         template = """
         You are a trend analysis expert tasked with identifying valuable content opportunities.
@@ -256,6 +287,7 @@ async def _analyze_trends_with_llm(
         Target platform: {target_platform}
         Industry/Niche: {industry}
         {keyword_focus}
+        {real_data_instruction}
         
         Analyze the following trends data from multiple sources:
         
@@ -270,6 +302,10 @@ async def _analyze_trends_with_llm(
            - Potential angles for {target_platform}
            - How recent and timely this trend is (is it happening right now?)
         3. Explain why each trend would be valuable for the target platform
+        4. Cross-reference trends across platforms - give higher priority to topics appearing in multiple sources
+        
+        RECENT WEB DATA: Pay special attention to the WebTrends data as it contains the most recent information from news sites and industry publications. 
+        The date information in WebTrends data indicates how current each trend is.
         
         RESPOND ONLY WITH a valid JSON array of trend objects with these fields:
         - topic: The main trend topic
@@ -288,7 +324,11 @@ async def _analyze_trends_with_llm(
         # Prepare trends data for the prompt
         trends_data = ""
         for source in trend_sources:
-            trends_data += f"\n--- {source.platform} TRENDS ---\n"
+            platform_name = source.platform
+            is_mock = source.metadata.get("is_mock", True)
+            source_indicator = "(REAL DATA)" if not is_mock else "(SAMPLE DATA)"
+            
+            trends_data += f"\n--- {platform_name} TRENDS {source_indicator} ---\n"
             trends_data += source.raw_data + "\n"
         
         # Run the chain
@@ -297,6 +337,7 @@ async def _analyze_trends_with_llm(
             "target_platform": input_data.target_platform,
             "industry": input_data.industry,
             "keyword_focus": keyword_instruction,
+            "real_data_instruction": real_data_instruction,
             "trends_data": trends_data
         })
         
@@ -333,17 +374,29 @@ async def _analyze_trends_with_llm(
                                   if k not in ["topic", "description", "engagement_level", 
                                               "target_audience", "content_suggestions", "source_platforms"]}
                 
-                trend_summaries.append(
-                    TrendSummary(
-                        topic=item.get("topic", ""),
-                        description=item.get("description", ""),
-                        engagement_level=item.get("engagement_level", "MEDIUM"),
-                        target_audience=item.get("target_audience", ""),
-                        content_suggestions=item.get("content_suggestions", []),
-                        source_platforms=item.get("source_platforms", []),
-                        timeliness=item.get("timeliness", "ONGOING")
-                    )
+                # Create trend summary
+                summary = TrendSummary(
+                    topic=item.get("topic", ""),
+                    description=item.get("description", ""),
+                    engagement_level=item.get("engagement_level", "MEDIUM"),
+                    target_audience=item.get("target_audience", ""),
+                    content_suggestions=item.get("content_suggestions", []),
+                    source_platforms=item.get("source_platforms", []),
+                    timeliness=item.get("timeliness", "ONGOING")
                 )
+                
+                # Log which sources contributed to this trend
+                source_platforms = item.get("source_platforms", [])
+                logger.debug(f"Trend '{summary.topic}' found in sources: {source_platforms}")
+                
+                trend_summaries.append(summary)
+            
+            # Log summary of analysis
+            logger.info(f"Generated {len(trend_summaries)} trend summaries using {model}")
+            
+            # Count trends that include web crawler data
+            web_trends_count = sum(1 for trend in trend_summaries if "WebTrends" in trend.source_platforms)
+            logger.info(f"{web_trends_count} trends include data from web crawler")
             
             return trend_summaries
         except json.JSONDecodeError as e:
