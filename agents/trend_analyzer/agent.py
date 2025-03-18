@@ -24,9 +24,7 @@ from .schemas import (
     CostMode
 )
 from .sources.reddit import fetch_reddit_trends
-from .sources.twitter import fetch_twitter_trends
 from .sources.youtube import fetch_youtube_trends
-from .sources.google_trends import fetch_google_trends
 from .sources.crawl4ai import fetch_crawl4ai_trends
 from utils.errors import AgentFailureError
 from utils.redis_cache import get_cached_result, cache_result
@@ -54,12 +52,32 @@ async def analyze_trends(input_data: TrendAnalyzerInput) -> TrendAnalyzerOutput:
             cached_result = await get_cached_result(cache_key)
             if cached_result:
                 logger.info(f"Returning cached trend analysis for {cache_key}")
-                return TrendAnalyzerOutput.model_validate(cached_result)
+                result = TrendAnalyzerOutput.model_validate(cached_result)
+                
+                # When using cached results, we need to set _sources to an empty list
+                # since that field isn't stored in the cache
+                if getattr(result, "_sources", None) is None:
+                    result._sources = []
+                    logger.info("Using cached result without source information")
+                
+                return result
         
         # 1. Fetch trends from all sources based on cost mode
         try:
             trend_sources = await _fetch_trends_from_sources(input_data)
             logger.info(f"Successfully fetched trends from {len(trend_sources)} sources")
+            
+            # Log which sources are using real vs. mock data
+            for source in trend_sources:
+                is_mock = source.metadata.get("is_mock", True)
+                logger.info(f"Source {source.platform}: Using {'MOCK' if is_mock else 'REAL'} data")
+                
+                # Special logging for YouTube to help debug
+                if source.platform == "YouTube":
+                    if is_mock:
+                        logger.warning("YouTube is using MOCK data. Check YouTube API key configuration.")
+                    else:
+                        logger.info("YouTube is using REAL data successfully!")
         except Exception as e:
             logger.error(f"Error fetching trends: {str(e)}", exc_info=True)
             # If we can't fetch trends, we can't continue
@@ -99,12 +117,14 @@ async def analyze_trends(input_data: TrendAnalyzerInput) -> TrendAnalyzerOutput:
             trend_depth=input_data.trend_depth,
             calendar_duration=input_data.calendar_duration,
             trend_summaries=trend_summaries,
-            content_calendar=content_calendar
+            content_calendar=content_calendar,
+            # Store the sources used for analysis to enable inspection
+            _sources=trend_sources
         )
         
         # 5. Cache the result
         try:
-            await cache_result(cache_key, result.model_dump(), expiry_seconds=3600)  # Cache for 1 hour
+            await cache_result(cache_key, result.model_dump(exclude={"_sources"}), expiry_seconds=3600)  # Cache for 1 hour
             logger.debug(f"Cached result with key: {cache_key}")
         except Exception as cache_err:
             logger.warning(f"Failed to cache result: {str(cache_err)}")
@@ -136,26 +156,21 @@ async def _fetch_trends_from_sources(input_data: TrendAnalyzerInput) -> List[Tre
     
     # Define which sources to use based on cost mode
     if cost_mode == CostMode.LOW_COST:
-        # For low cost, use only 2-3 sources
+        # For low cost, use only Reddit
         source_functions = [
-            fetch_reddit_trends,
-            fetch_twitter_trends
+            fetch_reddit_trends
         ]
     elif cost_mode == CostMode.BALANCED:
-        # For balanced, use 3-4 sources
+        # For balanced, use Reddit and YouTube
         source_functions = [
             fetch_reddit_trends,
-            fetch_twitter_trends,
-            fetch_youtube_trends,
-            fetch_google_trends
+            fetch_youtube_trends
         ]
     else:  # HIGH_QUALITY
-        # For high quality, use all sources
+        # For high quality, use all remaining sources
         source_functions = [
             fetch_reddit_trends,
-            fetch_twitter_trends, 
             fetch_youtube_trends,
-            fetch_google_trends,
             fetch_crawl4ai_trends
         ]
     

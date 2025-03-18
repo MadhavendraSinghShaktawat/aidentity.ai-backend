@@ -222,4 +222,29 @@ To use the real Google Trends API instead of mock data:
 
 ### Reddit API
 
-// ... existing Reddit API instructions ...
+The Trend Analyzer now uses the real Reddit API instead of mock data. To set up Reddit API access:
+
+1. Create a Reddit account if you don't already have one
+2. Visit [Reddit's App Preferences](https://www.reddit.com/prefs/apps)
+3. Scroll down and click "create another app..."
+4. Fill in the details:
+   - Name: AIdentityTrendAnalyzer
+   - Select "script" as the app type
+   - Description: AI Trend Analysis for Content Creation
+   - About URL: (optional)
+   - Redirect URI: http://localhost:8001/redirect (required but not used for script apps)
+5. Click "create app"
+6. After creation, note the following values:
+   - Client ID: The string shown under the app name
+   - Client Secret: The "secret" value
+
+7. Add these values to your `.env` file:
+```
+REDDIT_CLIENT_ID=your_client_id
+REDDIT_CLIENT_SECRET=your_client_secret
+REDDIT_USER_AGENT=aidentity-trend-analyzer/1.0 (by u/your_reddit_username)
+```
+
+The application will automatically use these credentials to access the Reddit API. If credentials are not provided, it will fall back to mock data.
+
+**Rate Limiting**: Be aware that the Reddit API has rate limits (60 requests per minute). The application includes error handling to manage these limits.

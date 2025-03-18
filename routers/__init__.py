@@ -57,4 +57,14 @@ def register_routers(app: FastAPI) -> None:
     )
     logger.info("Registered router: /api/trend-analyzer")
     
-    logger.info("Registered 3 API routers") 
+    logger.info("Registered 3 API routers")
+
+# Import routers here once they're implemented
+# This file can be empty for now or include router exports
+
+# Example of how to export routers when they're ready:
+# from .content import router as content_router
+# from .trends import router as trends_router
+# from .auth import router as auth_router
+
+# __all__ = ["content_router", "trends_router", "auth_router"] 

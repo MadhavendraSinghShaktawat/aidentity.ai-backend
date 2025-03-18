@@ -60,6 +60,7 @@ class TrendSummary(BaseModel):
     target_audience: str = Field(..., description="Key audience demographics for this trend")
     content_suggestions: List[str] = Field(..., description="Specific content ideas")
     source_platforms: List[str] = Field(..., description="Platforms where this trend is popular")
+    timeliness: str = Field("ONGOING", description="How recent and timely this trend is (VERY_RECENT, RECENT, ONGOING)")
 
 class ContentCalendarItem(BaseModel):
     """Individual content calendar item."""
@@ -88,14 +89,19 @@ class ContentCalendarItem(BaseModel):
     }
 
 class TrendAnalyzerOutput(BaseModel):
-    """Output structure from the trend analyzer agent."""
-    analyzed_at: datetime = Field(..., description="Timestamp of analysis")
-    target_platform: str = Field(..., description="Target social media platform")
-    industry: str = Field(..., description="Industry or niche")
-    trend_depth: TrendDepth = Field(..., description="Depth of trend analysis")
-    calendar_duration: CalendarDuration = Field(..., description="Duration of content calendar")
-    trend_summaries: List[TrendSummary] = Field(..., description="List of trend summaries")
-    content_calendar: List[ContentCalendarItem] = Field(..., description="Generated content calendar")
+    """
+    Output from the trend analyzer.
+    """
+    analyzed_at: datetime
+    target_platform: str
+    industry: str
+    trend_depth: TrendDepth
+    calendar_duration: str
+    trend_summaries: List[TrendSummary]
+    content_calendar: List[ContentCalendarItem]
+    # Add a field to store the sources used in the analysis
+    # The underscore prefix indicates this is somewhat internal/diagnostic
+    _sources: Optional[List[TrendSource]] = None
 
 class SupportedPlatformsResponse(BaseModel):
     """

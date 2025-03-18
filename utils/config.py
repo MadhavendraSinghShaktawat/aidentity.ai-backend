@@ -67,7 +67,7 @@ class Config:
     
     # Authentication
     SECRET_KEY: str = _clean_placeholder(os.getenv("SECRET_KEY")) or secrets.token_hex(32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or "30")
     GOOGLE_CLIENT_ID: Optional[str] = _clean_placeholder(os.getenv("GOOGLE_CLIENT_ID"))
     GOOGLE_CLIENT_SECRET: Optional[str] = _clean_placeholder(os.getenv("GOOGLE_CLIENT_SECRET"))
     OAUTH_REDIRECT_URL: Optional[str] = _clean_placeholder(os.getenv("OAUTH_REDIRECT_URL"))
